@@ -338,15 +338,21 @@ pc.extend(pc, function () {
                     url = pc.path.join(self.prefix, url);
                 }
 
+                var type = asset.type;
+
                 // add file hash to avoid caching
-                if (asset.type !== 'script') {
+                if (type !== 'script') {
                     var separator = url.indexOf('?') !== -1 ? '&' : '?';
                     url += separator + 't=' + asset.file.hash;
                 }
 
+                if (type === 'audio' && !asset.preload && asset.data && asset.data.stream) {
+                    type = 'audio-streaming';
+                }
+
                 asset.loading = true;
 
-                self._loader.load(url, asset.type, function (err, resource, extra) {
+                self._loader.load(url, type, function (err, resource, extra) {
                     asset.loaded = true;
                     asset.loading = false;
 

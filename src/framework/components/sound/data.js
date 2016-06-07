@@ -16,4 +16,5 @@ pc.SoundComponentData = function SoundComponentData() {
 
     // non serialized
     this.playingBeforeDisable = {};
+    this.initializedSlots = false;
 };

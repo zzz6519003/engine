@@ -90,7 +90,11 @@ pc.extend(pc, function () {
 
             this._initializeNodes();
 
+            this._loadedMetadataHandler = this._onLoadedMetadata.bind(this);
+            this._timeUpdateHandler = this._onTimeUpdate.bind(this);
             this._endedHandler = this._onEnded.bind(this);
+
+            this._isReady = false;
 
             // initialize source so that it's always available
             // from the start. This will stay null if a sound resource has not
@@ -131,36 +135,46 @@ pc.extend(pc, function () {
                     return false;
                 }
 
-                // calculate start offset
-                var offset = capTime(this._startOffset, this.duration);
-                offset = capTime(this._startTime + offset, this._sound.duration);
-                // reset start offset now that we started the sound
-                this._startOffset = null;
-
-                // start source with specified offset and duration
-                if (this._duration) {
-                    this.source.start(0, offset, this._duration);
-                } else {
-                    this.source.start(0, offset);
-                }
-
-                // store times
-                this._startedAt = this._manager.context.currentTime - offset;
-
-                // set current time to 0 and remember time we did this
-                // so that we can re-calculate currentTime later on
-                this._currentTime = 0;
-                this._calculatedCurrentTimeAt = this._manager.context.currentTime;
-
                 // set state to playing
                 this._state = STATE_PLAYING;
+
                 // no need for this anymore
                 this._playWhenLoaded = false;
 
-                // Initialize volume and loop - note moved to be after start() because of Chrome bug
-                this.volume = this._volume;
-                this.loop = this._loop;
-                this.pitch = this._pitch;
+                if (! this._audioElement) {
+                    // calculate start offset
+                    var offset = capTime(this._startOffset, this.duration);
+                    offset = capTime(this._startTime + offset, this._sound.duration);
+                    // reset start offset now that we started the sound
+                    this._startOffset = null;
+
+                    // start source with specified offset and duration
+                    if (this._duration) {
+                        this.source.start(0, offset, this._duration);
+                    } else {
+                        this.source.start(0, offset);
+                    }
+
+                    // store times
+                    this._startedAt = this._manager.context.currentTime - offset;
+
+                    // set current time to 0 and remember time we did this
+                    // so that we can re-calculate currentTime later on
+                    this._currentTime = 0;
+                    this._calculatedCurrentTimeAt = this._manager.context.currentTime;
+
+                    // Initialize volume and loop - note moved to be after start() because of Chrome bug
+                    this.volume = this._volume;
+                    this.loop = this._loop;
+                    this.pitch = this._pitch;
+                } else {
+                    this.volume = this._volume;
+                    this.pitch = this._pitch;
+                    this.loop = this._loop;
+
+                    this._audioElement.play();
+                }
+
 
                 // handle suspend events / volumechange events
                 this._manager.on('volumechange', this._onManagerVolumeChange, this);
@@ -192,16 +206,21 @@ pc.extend(pc, function () {
                 // set state to paused
                 this._state = STATE_PAUSED;
 
-                // re-calculate current time when we pause - we will stop re-calculating the current time
-                // until the sound is resumed
-                this._currentTime = capTime(this._currentTime + (this._manager.context.currentTime - this._calculatedCurrentTimeAt) * this.pitch, this.duration);
-                this._calculatedCurrentTimeAt = this._manager.context.currentTime;
-
-                // Stop the source and re-create it because we cannot reuse the same source.
                 // Suspend the end event as we are manually stopping the source
                 this._suspendEndEvent = true;
-                this.source.stop(0);
-                this._createSource();
+
+                // Stop the source and re-create it because we cannot reuse the same source.
+                if (!this._audioElement) {
+                    // re-calculate current time when we pause - we will stop re-calculating the current time
+                    // until the sound is resumed
+                    this._currentTime = capTime(this._currentTime + (this._manager.context.currentTime - this._calculatedCurrentTimeAt) * this.pitch, this.duration);
+                    this._calculatedCurrentTimeAt = this._manager.context.currentTime;
+
+                    this.source.stop(0);
+                    this._createSource();
+                } else {
+                    this._audioElement.pause();
+                }
 
                 // no need for this anymore
                 this._playWhenLoaded = false;
@@ -225,34 +244,41 @@ pc.extend(pc, function () {
                     return false;
                 }
 
-                // start at point where sound was paused
-                var offset = capTime(this._startTime + this._currentTime, this._sound.duration);
-
-                // if the user set the 'currentTime' property while the sound
-                // was paused then use that as the offset instead
-                if (this._startOffset !== null) {
-                    offset = capTime(this._startOffset, this.duration);
-                    offset = capTime(this._startTime + offset, this._sound.duration);
-
-                    // reset offset
-                    this._startOffset = null;
-                }
-
-                // start source
-                if (this._duration) {
-                    this.source.start(0, offset, this._duration);
-                } else {
-                    this.source.start(0, offset);
-                }
-
                 // set state back to playing
                 this._state = STATE_PLAYING;
 
                 // Initialize parameters
-                this.volume = this._volume;
-                this.loop = this._loop;
-                this.pitch = this._pitch;
                 this._playWhenLoaded = false;
+
+                if (! this._audioElement) {
+                    // start at point where sound was paused
+                    var offset = capTime(this._startTime + this._currentTime, this._sound.duration);
+
+                    // if the user set the 'currentTime' property while the sound
+                    // was paused then use that as the offset instead
+                    if (this._startOffset !== null) {
+                        offset = capTime(this._startOffset, this.duration);
+                        offset = capTime(this._startTime + offset, this._sound.duration);
+
+                        // reset offset
+                        this._startOffset = null;
+                    }
+
+                    // start source
+                    if (this._duration) {
+                        this.source.start(0, offset, this._duration);
+                    } else {
+                        this.source.start(0, offset);
+                    }
+
+                    this.volume = this._volume;
+                    this.loop = this._loop;
+                    this.pitch = this._pitch;
+                } else {
+                    if (this._audioElement.paused) {
+                        this._audioElement.play();
+                    }
+                }
 
                 if (! this._suspendInstanceEvents)
                     this.fire('resume', this);
@@ -275,19 +301,26 @@ pc.extend(pc, function () {
                 this._manager.off('resume', this._onManagerResume, this);
                 this._manager.off('destroy', this._onManagerDestroy, this);
 
-                // reset stored times
-                this._startedAt = 0;
-                this._startOffset = null;
-                this._playWhenLoaded = false;
-
-                this._suspendEndEvent = true;
-                if (this._state === STATE_PLAYING) {
-                    this.source.stop(0);
-                }
-
                 // set the state to stopped
                 this._state = STATE_STOPPED;
-                this._createSource();
+
+                this._playWhenLoaded = false;
+                this._startOffset = null;
+
+                if (! this._audioElement) {
+                    // reset stored times
+                    this._startedAt = 0;
+
+                    this._suspendEndEvent = true;
+                    if (this._state === STATE_PLAYING) {
+                        this.source.stop(0);
+                    }
+
+                    this._createSource();
+                } else {
+                    this._audioElement.pause();
+                }
+
 
                 if (! this._suspendInstanceEvents)
                     this.fire('stop', this);
@@ -403,7 +436,25 @@ pc.extend(pc, function () {
 
                 var context = this._manager.context;
 
-                if (this._sound.buffer) {
+                if (this._sound.audio) {
+
+                    this._isReady = false;
+                    this._audioElement = this._sound.audio.cloneNode(true);
+
+                    // set events
+                    this._audioElement.addEventListener('loadedmetadata', this._loadedMetadataHandler);
+                    this._audioElement.addEventListener('timeupdate', this._timeUpdateHandler);
+                    this._audioElement.onended = this._endedHandler;
+
+                    this.source = context.createMediaElementSource(this._audioElement);
+
+                    // Connect up the nodes
+                    this.source.connect(this._inputNode);
+
+                    if (! this._suspendInstanceEvents)
+                        this.fire('ready', this);
+
+                } else if (this._sound.buffer) {
                     this.source = context.createBufferSource();
                     this.source.buffer = this._sound.buffer;
 
@@ -426,19 +477,6 @@ pc.extend(pc, function () {
                 return this.source;
             },
 
-            _onEnded: function () {
-                // the callback is not fired synchronously
-                // so only reset _suspendEndEvent to false when the
-                // callback is fired
-                if (this._suspendEndEvent) {
-                    this._suspendEndEvent = false;
-                    return;
-                }
-
-                this.fire('end', this);
-                this.stop();
-            },
-
             /**
              * @private
              * @function
@@ -446,9 +484,12 @@ pc.extend(pc, function () {
              * @description Handle the manager's 'destroy' event.
              */
             _onManagerDestroy: function () {
-                if (this.source && this.isPlaying) {
+                if (this._audioElement) {
+                    this._audioElement.pause();
+                } else if (this.source && this.isPlaying) {
                     this.source.stop(0);
                     this.source = null;
+
                 }
             }
         };
@@ -473,19 +514,24 @@ pc.extend(pc, function () {
             },
 
             set: function (pitch) {
-                var old = this._pitch;
+                if (!this._audioElement) {
+                    var old = this._pitch;
 
-                // re-calculate current time up to now
-                // because since pitch is changing the time will move faster / slower
-                // from now on
-                if (this._calculatedCurrentTimeAt) {
-                    this._currentTime = capTime(this._currentTime + (this._manager.context.currentTime - this._calculatedCurrentTimeAt) * old, this.duration);
-                    this._calculatedCurrentTimeAt = this._manager.context.currentTime;
-                }
+                    // re-calculate current time up to now
+                    // because since pitch is changing the time will move faster / slower
+                    // from now on
+                    if (this._calculatedCurrentTimeAt) {
+                        this._currentTime = capTime(this._currentTime + (this._manager.context.currentTime - this._calculatedCurrentTimeAt) * old, this.duration);
+                        this._calculatedCurrentTimeAt = this._manager.context.currentTime;
+                    }
 
-                this._pitch = Math.max(Number(pitch) || 0, 0.01);
-                if (this.source) {
-                    this.source.playbackRate.value = this._pitch;
+                    this._pitch = Math.max(Number(pitch) || 0, 0.01);
+                    if (this.source) {
+                        this.source.playbackRate.value = this._pitch;
+                    }
+                } else {
+                    this._pitch = Math.max(Number(pitch) || 0, 0.01);
+                    this._audioElement.playbackRate = this._pitch;
                 }
 
             }
@@ -498,8 +544,9 @@ pc.extend(pc, function () {
 
             set: function (loop) {
                 this._loop = !!loop;
-                if (this.source) {
-                    this.source.loop = this._loop;
+                var source = this._audioElement || this.source;
+                if (source) {
+                    source.loop = this._loop;
                 }
             }
         });
@@ -534,6 +581,10 @@ pc.extend(pc, function () {
                     return 0;
                 }
 
+                if (this._audioElement) {
+                    return this._audioElement.currentTime - this._startTime;
+                }
+
                 // if the sound is paused return the currentTime calculated when
                 // pause() was called
                 if (this.isPaused) {
@@ -547,6 +598,16 @@ pc.extend(pc, function () {
             },
             set: function (value) {
                 if (value < 0) return;
+
+                if (this._audioElement) {
+                    this._startOffset = value;
+                    if (this._isReady) {
+                        this._audioElement.currentTime = capTime(this._startTime + capTime(value, this.duration), this._sound.duration);
+                        this._startOffset = null;
+                    }
+
+                    return;
+                }
 
                 if (this.isPlaying) {
                     // stop first which will set _startOffset to null
@@ -701,22 +762,6 @@ pc.extend(pc, function () {
                 return [null, null];
             },
 
-            // Sets start time after loadedmetadata is fired which is required by most browsers
-            _onLoadedMetadata: function () {
-                this.source.removeEventListener('loadedmetadata', this._loadedMetadataHandler);
-
-                this._isReady = true;
-
-                // calculate start time for source
-                var offset = capTime(this._startOffset, this.duration);
-                offset = capTime(this._startTime + offset, this._sound.duration);
-                // reset currentTime
-                this._startOffset = null;
-
-                // set offset on source
-                this.source.currentTime = offset;
-            },
-
             _createSource: function () {
                 if (this._sound && this._sound.audio) {
 
@@ -733,40 +778,6 @@ pc.extend(pc, function () {
                 }
 
                 return this.source;
-            },
-
-            // called every time the 'currentTime' is changed
-            _onTimeUpdate: function () {
-                if (!this._duration)
-                    return;
-
-                // if the currentTime passes the end then if looping go back to the beginning
-                // otherwise manually stop
-                if (this.source.currentTime > capTime(this._startTime + this._duration, this.source.duration)) {
-                    if (this.loop) {
-                        this.source.currentTime = capTime(this._startTime, this.source.duration);
-                    } else {
-                        // remove listener to prevent multiple calls
-                        this.source.removeEventListener('timeupdate', this._timeUpdateHandler);
-                        this.source.pause();
-
-                        // call this manually because it doesn't work in all browsers in this case
-                        this._onEnded();
-                    }
-                }
-            },
-
-            _onEnded: function () {
-                // the callback is not fired synchronously
-                // so only reset _suspendEndEvent to false when the
-                // callback is fired
-                if (this._suspendEndEvent) {
-                    this._suspendEndEvent = false;
-                    return;
-                }
-
-                this.fire('end', this);
-                this.stop();
             },
 
             /**
@@ -864,6 +875,59 @@ pc.extend(pc, function () {
 
     // Add functions which don't depend on source type
     pc.extend(SoundInstance.prototype, {
+        _onEnded: function () {
+            // the callback is not fired synchronously
+            // so only reset _suspendEndEvent to false when the
+            // callback is fired
+            if (this._suspendEndEvent) {
+                this._suspendEndEvent = false;
+                return;
+            }
+
+            this.fire('end', this);
+            this.stop();
+        },
+
+        // Sets start time after loadedmetadata is fired which is required by most browsers
+        _onLoadedMetadata: function () {
+            var source = this._audioElement || this.source;
+            source.removeEventListener('loadedmetadata', this._loadedMetadataHandler);
+
+            this._isReady = true;
+
+            // calculate start time for source
+            var offset = capTime(this._startOffset, this.duration);
+            offset = capTime(this._startTime + offset, this._sound.duration);
+            // reset currentTime
+            this._startOffset = null;
+
+            // set offset on source
+            source.currentTime = offset;
+        },
+
+        // called every time the 'currentTime' is changed
+        _onTimeUpdate: function () {
+            if (!this._duration)
+                return;
+
+            var source = this._audioElement || this.source;
+
+            // if the currentTime passes the end then if looping go back to the beginning
+            // otherwise manually stop
+            if (source.currentTime > capTime(this._startTime + this._duration, source.duration)) {
+                if (this.loop) {
+                    source.currentTime = capTime(this._startTime, source.duration);
+                } else {
+                    // remove listener to prevent multiple calls
+                    source.removeEventListener('timeupdate', this._timeUpdateHandler);
+                    source.pause();
+
+                    // call this manually because it doesn't work in all browsers in this case
+                    this._onEnded();
+                }
+            }
+        },
+
         /**
          * @private
          * @function
@@ -898,7 +962,9 @@ pc.extend(pc, function () {
                 this._suspended = false;
                 this.resume();
             }
-        }
+        },
+
+
     });
 
     Object.defineProperty(SoundInstance.prototype, 'startTime', {

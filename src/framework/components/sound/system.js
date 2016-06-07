@@ -82,6 +82,9 @@ pc.extend(pc, function () {
             // reset playingBeforeDisable
             newData.playingBeforeDisable = {};
 
+            // reset initialized slots
+            newData.initializedSlots = false;
+
             // add component with new data
             return this.addComponent(clone, newData);
         },

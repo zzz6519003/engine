@@ -87,6 +87,7 @@ pc.extend(pc, function () {
         this.loader.addHandler("text", new pc.TextHandler());
         this.loader.addHandler("json", new pc.JsonHandler());
         this.loader.addHandler("audio", new pc.AudioHandler(this._audioManager));
+        this.loader.addHandler("audio-streaming", new pc.StreamingAudioHandler(this._audioManager));
         this.loader.addHandler("script", new pc.ScriptHandler(this));
         this.loader.addHandler("scene", new pc.SceneHandler(this));
         this.loader.addHandler("cubemap", new pc.CubemapHandler(this.graphicsDevice, this.assets, this.loader));

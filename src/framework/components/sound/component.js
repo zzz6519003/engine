@@ -53,9 +53,17 @@ pc.extend(pc, function () {
 
             this.data.slots = slots;
 
-            // call onEnable in order to start autoPlay slots
-            if (this.enabled && this.entity.enabled)
-                this.onEnable();
+            // if we are currently initializing the component
+            // then don't call onEnable as it is going to be
+            // called in the end anyway
+            if (! this.data.initializedSlots) {
+                this.data.initializedSlots = true;
+            } else {
+                // call onEnable in order to start autoPlay slots
+                if (this.enabled && this.entity.enabled)
+                    this.onEnable();
+            }
+
         },
 
         onSetVolume: function (name, oldValue, newValue) {
