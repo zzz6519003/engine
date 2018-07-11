@@ -143,7 +143,7 @@ Object.assign(pc, function () {
                     break;
             }
 
-            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferId);
+            this.device.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferId);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.storage, glUsage);
         },
 

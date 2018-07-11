@@ -123,17 +123,16 @@ Object.assign(pc, function () {
         var i;
         this.canvas = canvas;
         this.shader = null;
-        this.indexBuffer = null;
         this.vertexBuffers = [];
         this.vbOffsets = [];
         this._enableAutoInstancing = false;
         this.autoInstancingMaxObjects = 16384;
         this.attributesInvalidated = true;
-        this.boundBuffer = null;
         this.instancedAttribs = { };
         this.enabledAttributes = { };
         this.transformFeedbackBuffer = null;
         this.activeFramebuffer = null;
+        this.boundBuffers = [ null, null ];
         this.textureUnit = 0;
         this.textureUnits = [];
         this._maxPixelRatio = 1;
@@ -318,6 +317,8 @@ Object.assign(pc, function () {
             this.targetToSlot[gl.TEXTURE_2D] = 0;
             this.targetToSlot[gl.TEXTURE_CUBE_MAP] = 1;
             this.targetToSlot[gl.TEXTURE_3D] = 2;
+            this.targetToSlot[gl.ARRAY_BUFFER] = 0;
+            this.targetToSlot[gl.ELEMENT_ARRAY_BUFFER] = 1;
 
             // Define the uniform commit functions
             var scopeX, scopeY, scopeZ, scopeW;
@@ -802,8 +803,8 @@ Object.assign(pc, function () {
                 this.buffers[i].bufferId = undefined;
                 this.buffers[i].unlock();
             }
-            this.boundBuffer = null;
-            this.indexBuffer = null;
+            this.boundBuffers[0] = null;
+            this.boundBuffers[1] = null;
             this.attributesInvalidated = true;
             this.enabledAttributes = {};
             this.vertexBuffers = [];
@@ -1018,9 +1019,6 @@ Object.assign(pc, function () {
          */
         updateBegin: function () {
             var gl = this.gl;
-
-            this.boundBuffer = null;
-            this.indexBuffer = null;
 
             // Set the render target
             var target = this.renderTarget;
@@ -1744,15 +1742,17 @@ Object.assign(pc, function () {
             var shader = this.shader;
             var samplers = shader.samplers;
             var uniforms = shader.uniforms;
+            var bufferId;
 
             if (numInstances > 1) {
-                this.boundBuffer = null;
+                this.boundBuffers[0] = null;
+                this.boundBuffers[1] = null;
                 this.attributesInvalidated = true;
             }
 
             // Commit the vertex buffer inputs
             if (this.attributesInvalidated) {
-                var attribute, element, vertexBuffer, vbOffset, bufferId;
+                var attribute, element, vertexBuffer, vbOffset;
                 var attributes = shader.attributes;
 
                 for (i = 0, len = attributes.length; i < len; i++) {
@@ -1769,10 +1769,7 @@ Object.assign(pc, function () {
 
                         // Set the active vertex buffer object
                         bufferId = vertexBuffer.bufferId;
-                        if (this.boundBuffer !== bufferId) {
-                            gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
-                            this.boundBuffer = bufferId;
-                        }
+                        this.bindBuffer(gl.ARRAY_BUFFER, bufferId);
 
                         // Hook the vertex buffer to the shader program
                         locationId = attribute.locationId;
@@ -1803,6 +1800,10 @@ Object.assign(pc, function () {
 
                 this.attributesInvalidated = false;
             }
+
+            // Set the active index buffer object
+            bufferId = this.indexBuffer ? this.indexBuffer.bufferId : null;
+            this.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferId);
 
             // Commit the shader program variables
             var textureUnit = 0;
@@ -1887,7 +1888,8 @@ Object.assign(pc, function () {
                         primitive.base * 2,
                         numInstances
                     );
-                    this.boundBuffer = null;
+                    this.boundBuffers[0] = null;
+                    this.boundBuffers[1] = null;
                     this.attributesInvalidated = true;
                 } else {
                     gl.drawElements(
@@ -1905,7 +1907,8 @@ Object.assign(pc, function () {
                         primitive.count,
                         numInstances
                     );
-                    this.boundBuffer = null;
+                    this.boundBuffers[0] = null;
+                    this.boundBuffers[1] = null;
                     this.attributesInvalidated = true;
                 } else {
                     gl.drawArrays(
@@ -2635,6 +2638,14 @@ Object.assign(pc, function () {
             return this.cullMode;
         },
 
+        bindBuffer: function (target, bufferId) {
+            var slot = this.targetToSlot[target];
+            if (this.boundBuffers[slot] !== bufferId) {
+                this.gl.bindBuffer(target, bufferId);
+                this.boundBuffers[slot] = bufferId;
+            }
+        },
+
         /**
          * @function
          * @name pc.GraphicsDevice#setIndexBuffer
@@ -2644,14 +2655,7 @@ Object.assign(pc, function () {
          * @param {pc.IndexBuffer} indexBuffer The index buffer to assign to the device.
          */
         setIndexBuffer: function (indexBuffer) {
-            // Store the index buffer
-            if (this.indexBuffer !== indexBuffer) {
-                this.indexBuffer = indexBuffer;
-
-                // Set the active index buffer object
-                var gl = this.gl;
-                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer ? indexBuffer.bufferId : null);
-            }
+            this.indexBuffer = indexBuffer;
         },
 
         /**

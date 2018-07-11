@@ -73,7 +73,7 @@ Object.assign(pc, function () {
         this._inputBuffer = inputBuffer;
         if (usage === pc.BUFFER_GPUDYNAMIC && inputBuffer.usage !== usage) {
             // have to recreate input buffer with other usage
-            gl.bindBuffer(gl.ARRAY_BUFFER, inputBuffer.bufferId);
+            this.device.bindBuffer(gl.ARRAY_BUFFER, inputBuffer.bufferId);
             gl.bufferData(gl.ARRAY_BUFFER, inputBuffer.storage, gl.DYNAMIC_COPY);
         }
 
