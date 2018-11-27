@@ -131,6 +131,20 @@ Object.assign(pc, function () {
      * }
      */
 
+    var Counters = function () {
+    };
+
+    Counters.prototype.begin = function (e) {
+        if (!this[e]) this[e] = { t0: 0, count: 0, total: 0 };
+        this[e].t0 = performance.now();
+    };
+
+    Counters.prototype.end = function (e) {
+        this[e].total += performance.now() - this[e].t0;
+        this[e].count++;
+        this[e].avg = this[e].total / this[e].count;
+    };
+
     var Application = function (canvas, options) {
         options = options || {};
 
@@ -138,6 +152,8 @@ Object.assign(pc, function () {
         pc.log.open();
         // Add event support
         pc.events.attach(this);
+
+        pc.counters = new pc.Counters();
 
         // Store application instance
         Application._applications[canvas.id] = this;
@@ -988,15 +1004,26 @@ Object.assign(pc, function () {
             // #endif
 
             // Perform ComponentSystem update
-            if (pc.script.legacy)
+            if (pc.script.legacy) {
+                pc.counters.begin('upd-com-fixed');
                 pc.ComponentSystem.fixedUpdate(1.0 / 60.0, this._inTools);
+                pc.counters.end('upd-com-fixed');
+            }
 
+            pc.counters.begin('upd-com');
             pc.ComponentSystem.update(dt, this._inTools);
+            pc.counters.end('upd-com');
+
+            pc.counters.begin('post-upd-com');
             pc.ComponentSystem.postUpdate(dt, this._inTools);
+            pc.counters.end('post-upd-com');
 
             // fire update event
+            pc.counters.begin('upd-fire');
             this.fire("update", dt);
+            pc.counters.end('upd-fire');
 
+            pc.counters.begin('controls');
             if (this.controller) {
                 this.controller.update(dt);
             }
@@ -1009,6 +1036,7 @@ Object.assign(pc, function () {
             if (this.gamepads) {
                 this.gamepads.update(dt);
             }
+            pc.counters.end('controls');
 
             // #ifdef PROFILER
             this.stats.frame.updateTime = pc.now() - this.stats.frame.updateStart;
@@ -1025,12 +1053,26 @@ Object.assign(pc, function () {
             this.stats.frame.renderStart = pc.now();
             // #endif
 
+            pc.counters.begin('pre-rndr');
             this.fire("prerender");
+            pc.counters.end('pre-rndr');
+
+            pc.counters.begin('sync-q');
             this.syncQueue.runSync();
+            pc.counters.end('sync-q');
+
+            pc.counters.begin('batcher');
             this.batcher.updateAll();
+            pc.counters.end('batcher');
+
             pc._skipRenderCounter = 0;
+            pc.counters.begin('render-comp');
             this.renderer.renderComposition(this.scene.layers);
+            pc.counters.end('render-comp');
+
+            pc.counters.begin('post-rndr');
             this.fire("postrender");
+            pc.counters.end('post-rndr');
 
             // #ifdef PROFILER
             this.stats.frame.renderTime = pc.now() - this.stats.frame.renderStart;
@@ -1588,6 +1630,8 @@ Object.assign(pc, function () {
                 return;
             }
 
+            pc.counters.begin('tick');
+
             Application._currentApplication = app;
 
             // have current application pointer in pc
@@ -1616,10 +1660,14 @@ Object.assign(pc, function () {
             app._fillFrameStats(now, dt, ms);
             // #endif
 
+            pc.counters.begin('update');
             app.update(dt);
+            pc.counters.end('update');
 
             if (app.autoRender || app.renderNextFrame) {
+                pc.counters.begin('render');
                 app.render();
+                pc.counters.end('render');
                 app.renderNextFrame = false;
             }
 
@@ -1627,12 +1675,15 @@ Object.assign(pc, function () {
             _frameEndData.timestamp = pc.now();
             _frameEndData.target = app;
 
+            pc.counters.begin('frameend');
             app.fire("frameend", _frameEndData);
             app.fire("frameEnd", _frameEndData);// deprecated old event, remove when editor updated
+            pc.counters.end('frameend');
 
             if (app.vr && app.vr.display && app.vr.display.presenting) {
                 app.vr.display.submitFrame();
             }
+            pc.counters.end('tick');
         };
     };
 
@@ -1668,6 +1719,7 @@ Object.assign(pc, function () {
          */
         RESOLUTION_FIXED: 'FIXED',
 
-        Application: Application
+        Application: Application,
+        Counters: Counters
     };
 }());

@@ -2654,6 +2654,7 @@ Object.assign(pc, function () {
             this.renderShadows(comp._sortedLights[pc.LIGHTTYPE_SPOT]);
             this.renderShadows(comp._sortedLights[pc.LIGHTTYPE_POINT]);
 
+            pc.counters.begin('render-layers');
             // Rendering
             renderedLength = 0;
             var cameraPass;
@@ -2738,6 +2739,7 @@ Object.assign(pc, function () {
                     // #ifdef PROFILER
                     draws = this._forwardDrawCalls;
                     // #endif
+                    pc.counters.begin('render-fwrd');
                     this.renderForward(camera.camera,
                                        visible.list,
                                        visible.length,
@@ -2746,6 +2748,7 @@ Object.assign(pc, function () {
                                        layer.cullingMask,
                                        layer.onDrawCall,
                                        layer);
+                    pc.counters.end('render-fwrd');
                     // #ifdef PROFILER
                     layer._forwardDrawCalls += this._forwardDrawCalls - draws;
                     // #endif
@@ -2778,6 +2781,7 @@ Object.assign(pc, function () {
                 layer._renderTime += pc.now() - drawTime;
                 // #endif
             }
+            pc.counters.end('render-layers');
         }
     });
 

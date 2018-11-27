@@ -358,9 +358,11 @@ Object.assign(pc, function () {
 
             for (list.loopIndex = 0; list.loopIndex < list.length; list.loopIndex++) {
                 script = list.items[list.loopIndex];
+                pc.counters.begin('script-upd-' + script.__scriptType.__name);
                 if (script.enabled) {
                     self._scriptMethod(script, ScriptComponent.scriptMethods.update, dt);
                 }
+                pc.counters.end('script-upd-' + script.__scriptType.__name);
             }
 
             self._endLooping(wasLooping);
@@ -377,9 +379,11 @@ Object.assign(pc, function () {
 
             for (list.loopIndex = 0; list.loopIndex < list.length; list.loopIndex++) {
                 script = list.items[list.loopIndex];
+                pc.counters.begin('script-post-upd-' + script.__scriptType.__name);
                 if (script.enabled) {
                     self._scriptMethod(script, ScriptComponent.scriptMethods.postUpdate, dt);
                 }
+                pc.counters.end('script-post-upd-' + script.__scriptType.__name);
             }
 
             self._endLooping(wasLooping);

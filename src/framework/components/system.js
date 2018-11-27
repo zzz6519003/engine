@@ -19,7 +19,9 @@ Object.assign(pc, function () {
     Object.assign(ComponentSystem, {
         _helper: function (a, p) {
             for (var i = 0, l = a.length; i < l; i++) {
+                pc.counters.begin(a[i].s.id);
                 a[i].f.call(a[i].s, p);
+                pc.counters.end(a[i].s.id);
             }
         },
 
