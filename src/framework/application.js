@@ -190,7 +190,6 @@ Object.assign(pc, function () {
         this._entityIndex = {};
 
         this.scene = new pc.Scene();
-        this.syncQueue = new pc.SyncQueue();
         this.root = new pc.Entity(this);
         this.root._enabledInHierarchy = true;
         this._enableList = [];
@@ -222,6 +221,7 @@ Object.assign(pc, function () {
                         width: self.graphicsDevice.width,
                         height: self.graphicsDevice.height
                     });
+                    depthBuffer.name = 'rt-depth2';
                     depthBuffer.minFilter = pc.FILTER_NEAREST;
                     depthBuffer.magFilter = pc.FILTER_NEAREST;
                     depthBuffer.addressU = pc.ADDRESS_CLAMP_TO_EDGE;
@@ -292,6 +292,7 @@ Object.assign(pc, function () {
                         width: self.graphicsDevice.width,
                         height: self.graphicsDevice.height
                     });
+                    colorBuffer.name = 'rt-depth1';
                     colorBuffer.minFilter = pc.FILTER_NEAREST;
                     colorBuffer.magFilter = pc.FILTER_NEAREST;
                     colorBuffer.addressU = pc.ADDRESS_CLAMP_TO_EDGE;
@@ -1057,9 +1058,9 @@ Object.assign(pc, function () {
             this.fire("prerender");
             pc.counters.end('pre-rndr');
 
-            pc.counters.begin('sync-q');
-            this.syncQueue.runSync();
-            pc.counters.end('sync-q');
+            pc.counters.begin('sync-hierarchy');
+            this.root.syncHierarchy();
+            pc.counters.end('sync-hierarchy');
 
             pc.counters.begin('batcher');
             this.batcher.updateAll();
