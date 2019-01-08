@@ -224,19 +224,14 @@ Object.assign(pc, function () {
 
                         if (!data.paused) {
                             emitter.simTime += dt;
-                            numSteps = 0;
-                            if (emitter.simTime > emitter.fixedTimeStep) {
-                                numSteps = Math.floor(emitter.simTime / emitter.fixedTimeStep);
-                                emitter.simTime -= numSteps * emitter.fixedTimeStep;
-                            }
-                            if (numSteps) {
-                                numSteps = Math.min(numSteps, emitter.maxSubSteps);
-                                for (i = 0; i < numSteps; i++) {
-                                    emitter.addTime(emitter.fixedTimeStep);
-                                }
+                            if (emitter.simTime > (0.5 * emitter.fixedTimeStep)) {
+                                emitter.addTime(emitter.simTime);
+                                emitter.simTime = 0;
+                                // #ifdef PROFILER
                                 stats._updatesPerFrame += numSteps;
                                 stats._frameTime += emitter._addTimeTime;
                                 emitter._addTimeTime = 0;
+                                // #endif
                             }
 
                             emitter.finishFrame();
