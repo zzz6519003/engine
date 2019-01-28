@@ -2664,6 +2664,7 @@ Object.assign(pc, function () {
             for (i = 0; i < comp._renderList.length; i++) {
                 layer = comp.layerList[comp._renderList[i]];
                 if (!layer.enabled || !comp.subLayerEnabled[comp._renderList[i]]) continue;
+                pc.counters.begin('render-layer-' + layer.name);
                 objects = layer.instances;
                 transparent = comp.subLayerList[comp._renderList[i]];
                 cameraPass = comp._renderListCamera[i];
@@ -2782,6 +2783,7 @@ Object.assign(pc, function () {
                // #ifdef PROFILER
                 layer._renderTime += pc.now() - drawTime;
                 // #endif
+                pc.counters.end('render-layer-' + layer.name);
             }
             pc.counters.end('render-layers');
         }
