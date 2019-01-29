@@ -2503,13 +2503,17 @@ Object.assign(pc, function () {
             var renderedLayer = comp._renderedLayer;
             var i, layer, transparent, cameras, j, rt, k, processedThisCamera, processedThisCameraAndLayer, processedThisCameraAndRt;
 
+            pc.counters.begin('render-begin-layers');
             this.beginLayers(comp);
+            pc.counters.end('render-begin-layers');
 
             // Update static layer data, if something's changed
+            pc.counters.begin('render-comp-upd');
             var updated = comp._update();
             if (updated & pc.COMPUPDATED_LIGHTS) {
                 this.scene.updateLitShaders = true;
             }
+            pc.counters.end('render-comp-upd');
 
             // #ifdef PROFILER
             if (updated & pc.COMPUPDATED_LIGHTS || !this.scene._statsUpdated) {
@@ -2536,9 +2540,13 @@ Object.assign(pc, function () {
             this.scene._statsUpdated = true;
             // #endif
 
+            pc.counters.begin('render-begin-frame');
             // Single per-frame calculations
             this.beginFrame(comp);
             this.setSceneConstants();
+            pc.counters.end('render-begin-frame');
+
+            pc.counters.begin('render-culling');
 
             // Camera culling (once for each camera + layer)
             // Also applies meshInstance.visible and camera.cullingMask
@@ -2646,15 +2654,20 @@ Object.assign(pc, function () {
             // #ifdef PROFILER
             this._cullTime += pc.now() - cullTime;
             // #endif
+            pc.counters.end('render-culling');
 
             // Can call script callbacks here and tell which objects are visible
 
+            pc.counters.begin('render-gpu-obj-update');
             // GPU update for all visible objects
             this.gpuUpdate(comp._meshInstances);
+            pc.counters.end('render-gpu-obj-update');
 
+            pc.counters.begin('render-shadows');
             // Shadow render for all local visible culled lights
             this.renderShadows(comp._sortedLights[pc.LIGHTTYPE_SPOT]);
             this.renderShadows(comp._sortedLights[pc.LIGHTTYPE_POINT]);
+            pc.counters.end('render-shadows');
 
             pc.counters.begin('render-layers');
             // Rendering
