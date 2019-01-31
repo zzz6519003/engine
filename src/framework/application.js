@@ -131,19 +131,78 @@ Object.assign(pc, function () {
      * }
      */
 
+    var Counter = function (name) {
+        this.name = name;
+        this.t0 = 0;
+        this.dt = 0;
+        this.count = 0;
+        this.total = 0;
+        this.avg = 0;
+        this.max = 0;
+        this.relative = 0;
+        this.ravg = 0;
+        this.internal = [];
+    };
+
+    Counter.frmt = new Intl.NumberFormat('en-US', { maximumSignificantDigits: 4 });
+
+    Counter.prototype.str = function () {
+        return this.name +
+            '[' + this.count + ']' +
+            ' ravg: ' + Counter.frmt.format(this.ravg) + '%' +
+            ' avg: ' + Counter.frmt.format(this.avg) +
+            ' max: ' + Counter.frmt.format(this.max) +
+            ' total: ' + Counter.frmt.format(this.total);
+    };
+
     var Counters = function () {
+        this.stack = [new Counter('root')];
     };
 
     Counters.prototype.begin = function (e) {
-        if (!this[e]) this[e] = { t0: 0, count: 0, total: 0 };
-        this[e].t0 = performance.now();
+        var top = this.stack[this.stack.length - 1];
+        if (!top.internal[e]) top.internal[e] = new Counter(e);
+        top.internal[e].t0 = performance.now();
+        this.stack.push(top.internal[e]);
     };
 
     Counters.prototype.end = function (e) {
-        this[e].total += performance.now() - this[e].t0;
-        this[e].count++;
-        this[e].avg = this[e].total / this[e].count;
+        var c = this.stack.pop();
+        if (c.name !== e) log.error('Counters stack corruption!!!');
+
+        var dt = Math.max(0.01, performance.now() - c.t0);
+        c.dt += dt;
+        c.total += dt;
+        c.count++;
+        c.avg = c.total / c.count;
+        c.max = Math.max(c.max, dt);
+
+        for (var i in c.internal) {
+            if (!c.internal.hasOwnProperty(i)) continue;
+            c.internal[i].relative += c.internal[i].dt / dt;
+            c.internal[i].dt = 0;
+            c.internal[i].ravg = 100 * c.internal[i].relative / c.count;
+        }
     };
+
+    Counters.prototype._print = function (counter, depth) {
+        console.log('    '.repeat(depth) + counter.str());
+        var keys = 0;
+        for (var i in counter.internal) {
+            if (counter.internal.hasOwnProperty(i)) {
+                if (depth >= 3 && counter.internal[i].ravg < 5) continue;
+                this._print(counter.internal[i], depth + 1);
+                keys++;
+            }
+        }
+        if (keys)
+            console.log('    '.repeat(depth) + '-' + counter.name);
+    };
+
+    Counters.prototype.print = function () {
+        this._print(this.stack[0], 0);
+    };
+
      /**
      * @private
      * @name pc.Application#i18n
