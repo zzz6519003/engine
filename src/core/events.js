@@ -159,6 +159,8 @@ pc.events = {
         if (!name || !this._callbacks || !this._callbacks[name])
             return this;
 
+        pc.counters.begin('event-' + name + '-fire');
+
         var callbacks;
 
         if (!this._callbackActive)
@@ -194,6 +196,8 @@ pc.events = {
 
         if (!callbacks)
             this._callbackActive[name] = null;
+
+        pc.counters.end('event-' + name + '-fire');
 
         return this;
     },

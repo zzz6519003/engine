@@ -155,8 +155,25 @@ Object.assign(pc, function () {
             ' total: ' + Counter.frmt.format(this.total);
     };
 
+    Counter.prototype.complete = function () {
+        var dt = Math.max(0.01, performance.now() - this.t0);
+        this.dt += dt;
+        this.total += dt;
+        this.count++;
+        this.avg = this.total / this.count;
+        this.max = Math.max(this.max, dt);
+
+        for (var i in this.internal) {
+            if (!this.internal.hasOwnProperty(i)) continue;
+            this.internal[i].relative += this.internal[i].dt / dt;
+            this.internal[i].dt = 0;
+            this.internal[i].ravg = 100 * this.internal[i].relative / this.count;
+        }
+    };
+
     var Counters = function () {
         this.stack = [new Counter('root')];
+        this.stack[0].t0 = performance.now();
     };
 
     Counters.prototype.begin = function (e) {
@@ -169,20 +186,7 @@ Object.assign(pc, function () {
     Counters.prototype.end = function (e) {
         var c = this.stack.pop();
         if (c.name !== e) log.error('Counters stack corruption!!!');
-
-        var dt = Math.max(0.01, performance.now() - c.t0);
-        c.dt += dt;
-        c.total += dt;
-        c.count++;
-        c.avg = c.total / c.count;
-        c.max = Math.max(c.max, dt);
-
-        for (var i in c.internal) {
-            if (!c.internal.hasOwnProperty(i)) continue;
-            c.internal[i].relative += c.internal[i].dt / dt;
-            c.internal[i].dt = 0;
-            c.internal[i].ravg = 100 * c.internal[i].relative / c.count;
-        }
+        c.complete();
     };
 
     Counters.prototype._print = function (counter, depth) {
@@ -190,7 +194,8 @@ Object.assign(pc, function () {
         var keys = 0;
         for (var i in counter.internal) {
             if (counter.internal.hasOwnProperty(i)) {
-                if (depth >= 3 && counter.internal[i].ravg < 5) continue;
+                if (counter.internal[i].ravg < 5 || (depth >= 4 && counter.internal[i].ravg < 5))
+                    continue;
                 this._print(counter.internal[i], depth + 1);
                 keys++;
             }
@@ -200,7 +205,9 @@ Object.assign(pc, function () {
     };
 
     Counters.prototype.print = function () {
+        this.stack[0].complete();
         this._print(this.stack[0], 0);
+        this.stack[0].t0 = performance.now();
     };
 
      /**
@@ -1746,6 +1753,12 @@ Object.assign(pc, function () {
             if (!app.graphicsDevice) {
                 return;
             }
+
+            if (app._initCounters)
+                pc.counters.end('frame');
+            else
+                app._initCounters = true;
+            pc.counters.begin('frame');
 
             pc.counters.begin('tick');
 
