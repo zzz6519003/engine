@@ -134,12 +134,16 @@ Object.assign(pc, function () {
     var Counter = function (name) {
         this.name = name;
         this.t0 = 0;
+        this.t1 = 0;
         this.dt = 0;
+        this.dT = 0;
         this.count = 0;
+        this.countFrame = 0;
         this.total = 0;
         this.avg = 0;
         this.max = 0;
         this.relative = 0;
+        this.frameRel = 0;
         this.ravg = 0;
         this.internal = [];
     };
@@ -155,11 +159,21 @@ Object.assign(pc, function () {
             ' total: ' + Counter.frmt.format(this.total);
     };
 
+    Counter.prototype.lastFrame = function () {
+        return this.name +
+            '[' + this.countFrame + ']' +
+            ' abs: ' + Counter.frmt.format(this.dT) +
+            ' rel: ' + Counter.frmt.format(this.frameRel) + '%';
+    };
+
     Counter.prototype.complete = function () {
-        var dt = Math.max(0.01, performance.now() - this.t0);
+        this.t1 = performance.now();
+        var dt = Math.max(0.01, this.t1 - this.t0);
         this.dt += dt;
+        this.dT += dt;
         this.total += dt;
         this.count++;
+        this.countFrame++;
         this.avg = this.total / this.count;
         this.max = Math.max(this.max, dt);
 
@@ -171,8 +185,27 @@ Object.assign(pc, function () {
         }
     };
 
+    Counter.prototype.frameOpen = function () {
+        this.dT = 0;
+        this.countFrame = 0;
+        for (var i in this.internal) {
+            if (!this.internal.hasOwnProperty(i)) continue;
+            this.internal[i].frameOpen();
+        }
+    };
+
+    Counter.prototype.frameClose = function () {
+        for (var i in this.internal) {
+            if (!this.internal.hasOwnProperty(i)) continue;
+            this.internal[i].frameRel = (this.dT > 0) ? (100 * this.internal[i].dT / this.dT) : 0;
+            this.internal[i].frameClose();
+        }
+    };
+
     var Counters = function () {
         this.stack = [new Counter('root')];
+        this.histo = new Array(10);
+        for (var i = 0; i < 10; i++) this.histo[i] = 0;
         this.stack[0].t0 = performance.now();
     };
 
@@ -185,7 +218,7 @@ Object.assign(pc, function () {
 
     Counters.prototype.end = function (e) {
         var c = this.stack.pop();
-        if (c.name !== e) log.error('Counters stack corruption!!!');
+        if (c.name !== e) console.error('Counters stack corruption!!!');
         c.complete();
     };
 
@@ -194,7 +227,7 @@ Object.assign(pc, function () {
         var keys = 0;
         for (var i in counter.internal) {
             if (counter.internal.hasOwnProperty(i)) {
-                if (counter.internal[i].ravg < 5 || (depth >= 4 && counter.internal[i].ravg < 5))
+                if (counter.internal[i].ravg < 1 || (depth >= 4 && counter.internal[i].ravg < 5))
                     continue;
                 this._print(counter.internal[i], depth + 1);
                 keys++;
@@ -204,10 +237,38 @@ Object.assign(pc, function () {
             console.log('    '.repeat(depth) + '-' + counter.name);
     };
 
+    Counters.prototype._printFrame = function (counter, depth) {
+        console.log('    '.repeat(depth) + counter.lastFrame());
+        var keys = 0;
+        for (var i in counter.internal) {
+            if (counter.internal.hasOwnProperty(i)) {
+                if (counter.internal[i].frameRel < 1 || (depth >= 4 && counter.internal[i].frameRel < 5))
+                    continue;
+                this._printFrame(counter.internal[i], depth + 1);
+                keys++;
+            }
+        }
+        if (keys)
+            console.log('    '.repeat(depth) + '-' + counter.name);
+    };
+
     Counters.prototype.print = function () {
-        this.stack[0].complete();
+        for (var i = 0; i < 10; i++) console.log('>' + (i * 10), this.histo[i]);
         this._print(this.stack[0], 0);
+    };
+
+    Counters.prototype.openFrame = function () {
+        this.stack[0].frameOpen();
         this.stack[0].t0 = performance.now();
+    };
+
+    Counters.prototype.closeFrame = function () {
+        this.stack[0].complete();
+        this.stack[0].frameClose();
+        var idx = Math.min(9, Math.round(this.stack[0].dT / 10));
+        this.histo[idx]++;
+        if (this.stack[0].dT > 100)
+            this._printFrame(this.stack[0], 0);
     };
 
      /**
@@ -1754,11 +1815,8 @@ Object.assign(pc, function () {
                 return;
             }
 
-            if (app._initCounters)
-                pc.counters.end('frame');
-            else
-                app._initCounters = true;
-            pc.counters.begin('frame');
+            pc.counters.closeFrame();
+            pc.counters.openFrame();
 
             pc.counters.begin('tick');
 
