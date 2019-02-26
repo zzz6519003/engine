@@ -177,7 +177,7 @@ Object.assign(pc, function () {
 
         onUpdate: function (dt) {
             var components = this.store;
-            var numSteps, i, j, c;
+            var i, j, c;
             var stats = this.app.stats.particles;
 
             for (var id in components) {
@@ -224,11 +224,11 @@ Object.assign(pc, function () {
 
                         if (!data.paused) {
                             emitter.simTime += dt;
-                            if (emitter.simTime > (0.5 * emitter.fixedTimeStep)) {
-                                emitter.addTime(emitter.simTime);
+                            if (emitter.simTime > emitter.fixedTimeStep) {
+                                emitter.addTime(emitter.simTime, false);
                                 emitter.simTime = 0;
                                 // #ifdef PROFILER
-                                stats._updatesPerFrame += numSteps;
+                                stats._updatesPerFrame++;
                                 stats._frameTime += emitter._addTimeTime;
                                 emitter._addTimeTime = 0;
                                 // #endif
