@@ -1536,6 +1536,7 @@ Object.assign(pc, function () {
                             material.dirty = false;
                         }
 
+                        pc.counters.begin("update-shader");
                         if (!drawCall._shader[pass] || drawCall._shaderDefs !== objDefs || drawCall._lightHash !== lightHash) {
                             if (!drawCall.isStatic) {
                                 variantKey = pass + "_" + objDefs + "_" + lightHash;
@@ -1550,6 +1551,7 @@ Object.assign(pc, function () {
                             drawCall._shaderDefs = objDefs;
                             drawCall._lightHash = lightHash;
                         }
+                        pc.counters.end("update-shader");
 
                         // #ifdef DEBUG
                         if (!device.setShader(drawCall._shader[pass])) {
@@ -1557,7 +1559,9 @@ Object.assign(pc, function () {
                             drawCall.material = scene.defaultMaterial;
                         }
                         // #else
+                        pc.counters.begin("set-shader");
                         device.setShader(drawCall._shader[pass]);
+                        pc.counters.end("set-shader");
                         // #endif
 
                         // Uniforms I: material
@@ -1696,7 +1700,9 @@ Object.assign(pc, function () {
                         i += this.drawInstance2(device, drawCall, mesh, style);
                         this._forwardDrawCalls++;
                     } else {
+                        pc.counters.begin("draw-instance");
                         i += this.drawInstance(device, drawCall, mesh, style, true);
+                        pc.counters.end("draw-instance");
                         this._forwardDrawCalls++;
                     }
 

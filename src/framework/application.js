@@ -168,7 +168,7 @@ Object.assign(pc, function () {
 
     Counter.prototype.complete = function () {
         this.t1 = performance.now();
-        var dt = Math.max(0.01, this.t1 - this.t0);
+        var dt = Math.max(0.00001, this.t1 - this.t0);
         this.dt += dt;
         this.dT += dt;
         this.total += dt;
@@ -179,9 +179,11 @@ Object.assign(pc, function () {
 
         for (var i in this.internal) {
             if (!this.internal.hasOwnProperty(i)) continue;
-            this.internal[i].relative += this.internal[i].dt / dt;
-            this.internal[i].dt = 0;
-            this.internal[i].ravg = 100 * this.internal[i].relative / this.count;
+            if (this.internal[i].dt > 0) {
+                this.internal[i].relative += this.internal[i].dt / dt;
+                this.internal[i].dt = 0;
+                this.internal[i].ravg = 100 * this.internal[i].relative / this.count;
+            }
         }
     };
 

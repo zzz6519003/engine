@@ -94,6 +94,7 @@ Object.assign(pc, function () {
                         if (!this._requests[key])
                             return;
 
+                        pc.counters.begin("handle-load-" + type);
                         var i, len = this._requests[key].length;
 
                         var resource;
@@ -115,6 +116,7 @@ Object.assign(pc, function () {
                                 this._requests[key][i](err);
                         }
                         delete this._requests[key];
+                        pc.counters.end("handle-load-" + type);
                     }.bind(this), asset);
                 }.bind(this);
 
