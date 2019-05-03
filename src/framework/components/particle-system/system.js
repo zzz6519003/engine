@@ -244,6 +244,7 @@ Object.assign(pc, function () {
                                 for (i = 0; i < numSteps; i++) {
                                     emitter.addTime(emitter.fixedTimeStep, false);
                                 }
+                                // #ifdef DEBUG
                                 stats._updatesPerFrame += numSteps;
                                 stats._frameTime += emitter._addTimeTime;
                                 emitter._addTimeTime = 0;
