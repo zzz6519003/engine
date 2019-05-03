@@ -22,7 +22,9 @@ Object.assign(pc, function () {
         'alignToMotion',
         'emitterShape',
         'emitterExtents',
+        'emitterExtentsInner',
         'emitterRadius',
+        'emitterRadiusInner',
         'initialVelocity',
         'wrap',
         'wrapBounds',
@@ -31,12 +33,16 @@ Object.assign(pc, function () {
         'normalMapAsset',
         'mesh',
         'meshAsset',
+        'orientation',
+        'particleNormal',
         'localVelocityGraph',
         'localVelocityGraph2',
         'velocityGraph',
         'velocityGraph2',
         'rotationSpeedGraph',
         'rotationSpeedGraph2',
+        'radialSpeedGraph',
+        'radialSpeedGraph2',
         'scaleGraph',
         'scaleGraph2',
         'colorGraph',
@@ -74,6 +80,8 @@ Object.assign(pc, function () {
 
         this.propertyTypes = {
             emitterExtents: 'vec3',
+            emitterExtentsInner: 'vec3',
+            particleNormal: 'vec3',
             wrapBounds: 'vec3',
             localVelocityGraph: 'curveset',
             localVelocityGraph2: 'curveset',
@@ -85,6 +93,8 @@ Object.assign(pc, function () {
             alphaGraph2: 'curve',
             rotationSpeedGraph: 'curve',
             rotationSpeedGraph2: 'curve',
+            radialSpeedGraph: 'curve',
+            radialSpeedGraph2: 'curve',
             scaleGraph: 'curve',
             scaleGraph2: 'curve'
         };
@@ -223,17 +233,22 @@ Object.assign(pc, function () {
                         }
 
                         if (!data.paused) {
+                            var numSteps = 0;
                             emitter.simTime += dt;
                             if (emitter.simTime > emitter.fixedTimeStep) {
-                                emitter.addTime(emitter.simTime, false);
-                                emitter.simTime = 0;
-                                // #ifdef PROFILER
-                                stats._updatesPerFrame++;
+                                numSteps = Math.floor(emitter.simTime / emitter.fixedTimeStep);
+                                emitter.simTime -= numSteps * emitter.fixedTimeStep;
+                            }
+                            if (numSteps) {
+                                numSteps = Math.min(numSteps, emitter.maxSubSteps);
+                                for (i = 0; i < numSteps; i++) {
+                                    emitter.addTime(emitter.fixedTimeStep, false);
+                                }
+                                stats._updatesPerFrame += numSteps;
                                 stats._frameTime += emitter._addTimeTime;
                                 emitter._addTimeTime = 0;
                                 // #endif
                             }
-
                             emitter.finishFrame();
                         }
                     }

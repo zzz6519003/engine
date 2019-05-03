@@ -66,7 +66,7 @@ Object.assign(pc, function () {
      * @property {Boolean} useInput If true then the component will receive Mouse or Touch input events.
      * @property {pc.Color} color The color of the image for {@link pc.ELEMENTTYPE_IMAGE} types or the color of the text for {@link pc.ELEMENTTYPE_TEXT} types.
      * @property {Number} opacity The opacity of the image for {@link pc.ELEMENTTYPE_IMAGE} types or the text for {@link pc.ELEMENTTYPE_TEXT} types.
-     * @property {pc.Color} outlineColor The text outline effect color and opacity . Only works for {@link pc.ELEMENTTYPE_TEXT} types.
+     * @property {pc.Color} outlineColor The text outline effect color and opacity. Only works for {@link pc.ELEMENTTYPE_TEXT} types.
      * @property {Number} outlineThickness The width of the text outline effect. Only works for {@link pc.ELEMENTTYPE_TEXT} types.
      * @property {pc.Color} shadowColor The text shadow effect color and opacity. Only works for {@link pc.ELEMENTTYPE_TEXT} types.
      * @property {pc.Vec2} shadowOffset The text shadow effect shift amount from original text. Only works for {@link pc.ELEMENTTYPE_TEXT} types.
@@ -276,7 +276,7 @@ Object.assign(pc, function () {
                 // WARNING: Order is important as calculateSize resets dirtyLocal
                 // so this needs to run before resetting dirtyLocal to false below
                 if (element._sizeDirty) {
-                    element._calculateSize();
+                    element._calculateSize(false, false);
                 }
             }
 
@@ -715,6 +715,10 @@ Object.assign(pc, function () {
                 this.system.app.scene.layers.on("remove", this.onLayerRemoved, this);
             }
 
+            if (this._batchGroupId >= 0) {
+                this.system.app.batcher.insert(pc.BatchGroup.ELEMENT, this.batchGroupId, this.entity);
+            }
+
             this.fire("enableelement");
         },
 
@@ -734,7 +738,7 @@ Object.assign(pc, function () {
             }
 
             if (this._batchGroupId >= 0) {
-                this.system.app.batcher.markGroupDirty(this.batchGroupId);
+                this.system.app.batcher.remove(pc.BatchGroup.ELEMENT, this.batchGroupId, this.entity);
             }
 
             this.fire("disableelement");
@@ -810,9 +814,11 @@ Object.assign(pc, function () {
         },
 
         _setCalculatedWidth: function (value, updateMargins) {
-            var didChange = Math.abs(value - this._calculatedWidth) > 1e-4;
+            if (Math.abs(value - this._calculatedWidth) <= 1e-4)
+                return;
 
             this._calculatedWidth = value;
+            this.entity._dirtifyLocal();
 
             if (updateMargins) {
                 var p = this.entity.getLocalPosition();
@@ -822,18 +828,16 @@ Object.assign(pc, function () {
             }
 
             this._flagChildrenAsDirty();
-
             this.fire('set:calculatedWidth', this._calculatedWidth);
-
-            if (didChange) {
-                this.fire('resize', this._calculatedWidth, this._calculatedHeight);
-            }
+            this.fire('resize', this._calculatedWidth, this._calculatedHeight);
         },
 
         _setCalculatedHeight: function (value, updateMargins) {
-            var didChange = Math.abs(value - this._calculatedHeight) > 1e-4;
+            if (Math.abs(value - this._calculatedHeight) <= 1e-4)
+                return;
 
             this._calculatedHeight = value;
+            this.entity._dirtifyLocal();
 
             if (updateMargins) {
                 var p = this.entity.getLocalPosition();
@@ -843,12 +847,8 @@ Object.assign(pc, function () {
             }
 
             this._flagChildrenAsDirty();
-
             this.fire('set:calculatedHeight', this._calculatedHeight);
-
-            if (didChange) {
-                this.fire('resize', this._calculatedWidth, this._calculatedHeight);
-            }
+            this.fire('resize', this._calculatedWidth, this._calculatedHeight);
         },
 
         _flagChildrenAsDirty: function () {
@@ -1227,7 +1227,7 @@ Object.assign(pc, function () {
             this._cornersDirty = true;
             this._worldCornersDirty = true;
 
-            this._calculateSize();
+            this._calculateSize(false, false);
 
             this.fire('set:pivot', this._pivot);
         }
@@ -1451,14 +1451,19 @@ Object.assign(pc, function () {
             if (this._batchGroupId === value)
                 return;
 
-            if (this._batchGroupId >= 0) this.system.app.batcher.markGroupDirty(this._batchGroupId);
-            if (value >= 0) this.system.app.batcher.markGroupDirty(value);
+            if (this.entity.enabled && this._batchGroupId >= 0) {
+                this.system.app.batcher.remove(pc.BatchGroup.ELEMENT, this.batchGroupId, this.entity);
+            }
+
+            if (this.entity.enabled && value >= 0) {
+                this.system.app.batcher.insert(pc.BatchGroup.ELEMENT, value, this.entity);
+            }
 
             if (value < 0 && this._batchGroupId >= 0 && this.enabled && this.entity.enabled) {
                 // re-add model to scene, in case it was removed by batching
-                if (this._image._model) {
-                    this.addModelToLayers(this._image._model);
-                } else if (this._text._model) {
+                if (this._image && this._image._renderable.model) {
+                    this.addModelToLayers(this._image._renderable.model);
+                } else if (this._text && this._text._model) {
                     this.addModelToLayers(this._text._model);
                 }
             }
