@@ -702,6 +702,10 @@ pc.programlib.standard = {
             code += pc.programlib.versionCode(device);
         }
 
+        if (device.extTextureLod) {
+            code += "#extension GL_EXT_shader_texture_lod : enable\n\n";
+        }
+
         if (device.extStandardDerivatives && !device.webgl2) {
             code += "#extension GL_OES_standard_derivatives : enable\n\n";
         }

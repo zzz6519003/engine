@@ -831,7 +831,7 @@ Object.assign(pc, function () {
             }
 
             var useTexCubeLod = device.useTexCubeLod;
-            var useDp = !device.extTextureLod; // no basic extension? likely slow device, force dp
+            var useDp = !useTexCubeLod && this.maxTextures < 16;
 
             var globalSky128, globalSky64, globalSky32, globalSky16, globalSky8, globalSky4;
             if (this.useSkybox) {
@@ -895,6 +895,7 @@ Object.assign(pc, function () {
             }
 
             var generator = pc.programlib.standard;
+
             // Minimal options for Depth and Shadow passes
             var minimalOptions = pass > pc.SHADER_FORWARDHDR && pass <= pc.SHADER_PICK;
             var options = minimalOptions ? generator.optionsContextMin : generator.optionsContext;
@@ -903,6 +904,7 @@ Object.assign(pc, function () {
                 this.shaderOptBuilder.updateMinRef(options, device, scene, this, objDefs, staticLightList, pass, sortedLights, prefilteredCubeMap128);
             else
                 this.shaderOptBuilder.updateRef(options, device, scene, this, objDefs, staticLightList, pass, sortedLights, prefilteredCubeMap128);
+
 
             if (this.onUpdateShader) {
                 options = this.onUpdateShader(options);
