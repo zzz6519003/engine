@@ -895,7 +895,6 @@ Object.assign(pc, function () {
             }
 
             var generator = pc.programlib.standard;
-
             // Minimal options for Depth and Shadow passes
             var minimalOptions = pass > pc.SHADER_FORWARDHDR && pass <= pc.SHADER_PICK;
             var options = minimalOptions ? generator.optionsContextMin : generator.optionsContext;
@@ -904,7 +903,6 @@ Object.assign(pc, function () {
                 this.shaderOptBuilder.updateMinRef(options, device, scene, this, objDefs, staticLightList, pass, sortedLights, prefilteredCubeMap128);
             else
                 this.shaderOptBuilder.updateRef(options, device, scene, this, objDefs, staticLightList, pass, sortedLights, prefilteredCubeMap128);
-
 
             if (this.onUpdateShader) {
                 options = this.onUpdateShader(options);
