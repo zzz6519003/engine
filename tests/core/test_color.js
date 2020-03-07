@@ -40,5 +40,9 @@ describe('pc.Color', function () {
         expect(c.toString(true)).to.equal('#babab1ff');
     });
 
-});
+    it('Color.clone()', function () {
+        var c = new pc.Color(1,1,1);
+        expect(c.toString()).to.equal(c.clone().toString());
+    })
 
+});
